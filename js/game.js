@@ -75,7 +75,24 @@ cv.addEventListener('click', () => { audioInit(); pressed.Enter = true; });
 // ---------- tactile (téléphone / tablette) : boutons à l'écran, pensés pour le mode solo
 let touchOn = false, tapQ = [], tHeld = {}, tEdge = {}, tapUI = { ok: false, back: false, tab: false };
 const touches = new Map();
-const TB = { left: { x: 105, y: 615, r: 72 }, right: { x: 265, y: 615, r: 72 }, jump: { x: 1170, y: 605, r: 82 }, use: { x: 1005, y: 650, r: 58 }, swap: { x: 1175, y: 430, r: 56 }, pause: { x: 640, y: 32, r: 28 } };
+// caméra : sur écran tactile, on zoome sur le personnage actif (une salle entière serait minuscule sur un téléphone)
+let camX = W / 2, camY = H / 2, camZ = 1, overview = false;
+function camFrame(dt) {
+  let zt = 1, tx = W / 2, ty = H / 2;
+  if (touchOn && !overview && lv && (state === 'play' || state === 'pause' || state === 'win')) {
+    zt = cv.clientWidth < 1000 ? 2.1 : 1.6;
+    const solo = save.mode === 1, a = active === 0 ? lux : nyx, b = solo ? a : (active === 0 ? nyx : lux);
+    tx = (a.x + a.w / 2 + b.x + b.w / 2) / 2; ty = (a.y + a.h / 2 + b.y + b.h / 2) / 2 - 20;
+  }
+  const k = Math.min(1, dt * 6);
+  camZ += (zt - camZ) * k;
+  // en zoom, la caméra peut dépasser un peu des bords pour que le personnage ne reste pas caché sous les boutons
+  const hw = W / (2 * camZ), hh = H / (2 * camZ), mx = (camZ - 1) * 150, my = (camZ - 1) * 50;
+  tx = Math.max(hw - mx, Math.min(W - hw + mx, tx)); ty = Math.max(hh, Math.min(H - hh + my, ty));
+  camX += (tx - camX) * k; camY += (ty - camY) * k;
+  camX = Math.max(hw - mx, Math.min(W - hw + mx, camX)); camY = Math.max(hh, Math.min(H - hh + my, camY));
+}
+const TB = { view: { x: 555, y: 32, r: 28 }, left: { x: 105, y: 615, r: 72 }, right: { x: 265, y: 615, r: 72 }, jump: { x: 1170, y: 605, r: 82 }, use: { x: 1005, y: 650, r: 58 }, swap: { x: 1175, y: 430, r: 56 }, pause: { x: 640, y: 32, r: 28 } };
 function tpos(t) { const r = cv.getBoundingClientRect(); return { x: (t.clientX - r.left) * W / r.width, y: (t.clientY - r.top) * H / r.height }; }
 cv.addEventListener('touchstart', e => { e.preventDefault(); touchOn = true; audioInit(); for (const t of e.changedTouches) { const p = tpos(t); touches.set(t.identifier, p); tapQ.push(p); } }, { passive: false });
 cv.addEventListener('touchmove', e => { e.preventDefault(); for (const t of e.changedTouches) touches.set(t.identifier, tpos(t)); }, { passive: false });
@@ -112,6 +129,7 @@ cv.addEventListener('touchend', tEnd, { passive: false }); cv.addEventListener('
 function touchFrame() {
   const prev = tHeld; tHeld = {}; tEdge = {};
   for (const k in TB) { const b = TB[k]; let h = false; for (const p of touches.values()) if (Math.hypot(p.x - b.x, p.y - b.y) < b.r * 1.2) h = true; tHeld[k] = h; tEdge[k] = h && !prev[k]; }
+  if (tEdge.view && state === 'play') overview = !overview;
   tapUI = { ok: false, back: false, tab: false };
   const q = tapQ; tapQ = [];
   for (const p of q) {
@@ -659,9 +677,9 @@ function drawHud() {
   text(touchOn ? L.def.hint.replace(/touche BAS/g, 'bouton ▼').replace(/^Lux : Z Q S D — Nyx : flèches\. /, '') : L.def.hint + (solo ? '   [TAB : changer de personnage]' : ''), W / 2, touchOn ? 84 : H - 15, 15, '#e8e8f5', 'center'); ctx.globalAlpha = 1;
   if (touchOn) {
     const btn = (k, label) => { const b = TB[k]; ctx.globalAlpha = tHeld[k] ? .5 : .22; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 6.3); ctx.fill(); ctx.globalAlpha = .85; text(label, b.x, b.y + b.r * .26, b.r * .75, '#0b0b18', 'center', true); ctx.globalAlpha = 1; };
-    btn('left', '◀'); btn('right', '▶'); btn('jump', '▲'); btn('use', '▼'); if (solo) btn('swap', '⇄'); btn('pause', 'II');
+    btn('left', '◀'); btn('right', '▶'); btn('jump', '▲'); btn('use', '▼'); if (solo) btn('swap', '⇄'); btn('pause', 'II'); btn('view', overview ? '+' : '◎');
   }
-  const tag = (p, s, col) => { if (p.dead) return; const y = p.y - 12 + Math.sin(tGlobal * 5) * 3; ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(p.x + p.w / 2 - 7, y - 8); ctx.lineTo(p.x + p.w / 2 + 7, y - 8); ctx.lineTo(p.x + p.w / 2, y); ctx.fill(); if (s) text(s, p.x + p.w / 2, y - 13, 13, col, 'center', true); };
+  const tag = (p, s, col) => { if (p.dead) return; const px = (p.x + p.w / 2 - camX) * camZ + W / 2, y = (p.y - camY) * camZ + H / 2 - 12 + Math.sin(tGlobal * 5) * 3; ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(px - 7, y - 8); ctx.lineTo(px + 7, y - 8); ctx.lineTo(px, y); ctx.fill(); if (s) text(s, px, y - 13, 13, col, 'center', true); };
   if (solo) tag(active === 0 ? lux : nyx, '', '#fff');
   else if (hudT < 5) { tag(lux, 'J1', LUXC); tag(nyx, 'J2', NYXC); }
   if (L.t < .4) { ctx.fillStyle = 'rgba(0,0,0,' + (1 - L.t / .4) + ')'; ctx.fillRect(0, 0, W, H); }
@@ -689,7 +707,7 @@ function drawTwin(cx, cy, R) {
 
 // ---------- boucle
 function update(dt) {
-  tGlobal += dt; pollPads(); touchFrame(); music(dt);
+  tGlobal += dt; pollPads(); touchFrame(); camFrame(dt); music(dt);
   const ui = uiIn();
   if (pressed.KeyM) muted = !muted;
   if (pressed.KeyF) { if (document.fullscreenElement) document.exitFullscreen(); else if (cv.requestFullscreen) cv.requestFullscreen().catch(() => {}); }
@@ -760,7 +778,8 @@ function render() {
     const e = ENDING[Math.min(endI, ENDING.length - 1)]; panel(e[0], e[1], 'Entrée ▸');
     text('Éclats retrouvés : ' + totalShards() + ' / ' + TOTAL_SHARDS, W / 2, 40, 16, '#fff6c9', 'center');
   } else {
-    drawLevel();
+    ctx.fillStyle = '#05050c'; ctx.fillRect(0, 0, W, H);
+    ctx.save(); ctx.translate(W / 2, H / 2); ctx.scale(camZ, camZ); ctx.translate(-camX, -camY); drawLevel(); ctx.restore();
     if (state === 'story') {
       ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(0, 0, W, H);
       text(WORLDS[world(lv.i)].name, W / 2, 150, 22, THEMES[world(lv.i)].edge, 'center');
