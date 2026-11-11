@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Lux & Nyx</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<style>
+  html, body { margin: 0; height: 100%; background: #05050c; overflow: hidden; overscroll-behavior: none; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas { width: min(100vw, 177.78vh); height: min(56.25vw, 100vh); width: min(100vw, 177.78dvh); height: min(56.25vw, 100dvh); display: block; background: #000; outline: none; touch-action: none; -webkit-user-select: none; user-select: none; }
+  #turn { display: none; position: fixed; inset: 0; background: #05050c; color: #fff; font: 600 20px "Trebuchet MS", "Segoe UI", sans-serif; align-items: center; justify-content: center; text-align: center; padding: 24px; }
+  @media (orientation: portrait) and (pointer: coarse) { #turn { display: flex; } }
+</style>
+</head>
+<body>
+<canvas id="c" width="1280" height="720" tabindex="0"></canvas>
+<div id="turn">Tournez votre appareil à l'horizontale pour jouer ↻</div>
+<script src="js/levels.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
